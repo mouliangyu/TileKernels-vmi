@@ -113,9 +113,10 @@ def get_per_token_cast_and_cast_back_kernel_vmi(
             amax = T.vmi.vcmax(T.vmi.vabs(values), group=groups)
             T.vmi.vstore(amax, amax_ub[sf_offset], stride=1, group=groups)
         else:
-            values = T.vmi.vload(x_ub[row, col], size=tile_k)
-            amax = T.vmi.vcmax(T.vmi.vabs(values), group=groups)
-            T.vmi.vstore(amax, amax_ub[sf_offset], stride=1, group=groups)
+            for vector in T.unroll(tile_k // 64, explicit=True):
+                values = T.vmi.vload(x_ub[row, col + vector * 64], size=64)
+                amax = T.vmi.vcmax(T.vmi.vabs(values), group=2)
+                T.vmi.vstore(amax, amax_ub[sf_offset + vector * 2], stride=1, group=2)
 
     @T.macro
     def collect_amax(x_ub, amax_ub):
